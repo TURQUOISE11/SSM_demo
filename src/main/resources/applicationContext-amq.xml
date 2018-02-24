@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="GBK"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xsi:schemaLocation="
+          http://www.springframework.org/schema/beans
+          http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+          http://www.springframework.org/schema/tx
+          http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+          http://www.springframework.org/schema/context
+          http://www.springframework.org/schema/context/spring-context-3.0.xsd
+          http://www.springframework.org/schema/aop
+          http://www.springframework.org/schema/aop/spring-aop-3.0.xsd"
+       default-autowire="byName">
+
+    <!-- 配置JMS连接工厂 -->
+    <bean id="connectionFactory"
+          class="org.apache.activemq.ActiveMQConnectionFactory">
+        <property name="brokerURL" value="tcp://localhost:1883" />
+    </bean>
+
+    <!-- Topic方式 -->
+    <!-- 发送消息的目的地（主题） -->
+    <bean id="topicDest"
+          class="org.apache.activemq.command.ActiveMQTopic">
+        <!-- 设置消息队列的名字 -->
+        <constructor-arg index="0" value="myTopic" />
+    </bean>
+    <!-- 配置TopicJms模板  -->
+    <bean id="jmsTopicTemplate"
+          class="org.springframework.jms.core.JmsTemplate">
+        <property name="connectionFactory" ref="connectionFactory" />
+        <property name="defaultDestination" ref="topicDest" />
+        <!-- 配置是否为发布订阅者模式，默认为false -->
+        <property name="pubSubDomain" value="true"/>
+        <property name="receiveTimeout" value="10000" />
+    </bean>
+
+    <!-- 发布订阅配置 -->
+    <bean id="publisherService" class="com.zkml.service.PublisherServiceImpl">
+        <property name="jmsTemplate" ref="jmsTopicTemplate" />
+        <property name="destination" ref="topicDest" />
+    </bean>
+    <bean id="firstSubscriberService" class="com.zkml.service.SubscriberServiceImpl">
+        <property name="jmsTemplate" ref="jmsTopicTemplate" />
+        <property name="destination" ref="topicDest" />
+    </bean>
+
+
+    <!-- 配置主题订阅者监听 -->
+    <bean id="firstSubscriberListenerService" class="com.zkml.service.SubscriberListenerServiceImpl">
+    </bean>
+
+
+    <!-- 配置监听适配器 -->
+    <!-- 配置主题订阅者监听适配器 -->
+    <bean id="firstTopicListener" class="org.springframework.jms.listener.adapter.MessageListenerAdapter">
+        <constructor-arg ref="firstSubscriberListenerService" />
+        <property name="defaultListenerMethod" value="receive" />
+    </bean>
+
+
+    <!-- 配置监听适容器 -->
+    <!-- 配置订阅者监听适容器 -->
+    <bean id="firstTopicListenerContainer" class="org.springframework.jms.listener.DefaultMessageListenerContainer">
+        <property name="connectionFactory" ref="connectionFactory" />
+        <property name="destination" ref="topicDest" />
+        <property name="messageListener" ref="firstTopicListener" />
+    </bean>
+
+
+</beans>
